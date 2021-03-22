@@ -3,4 +3,5 @@ project(heuro)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_library(heuro Heuro.hpp)
+add_library(heuro Heuro.hpp Scp.cpp)
+target_include_directories(heuro PRIVATE util)
