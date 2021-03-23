@@ -1,0 +1,3 @@
+[submodule "vendor/xlnt"]
+	path = vendor/xlnt
+	url = https://github.com/tfussell/xlnt.git
