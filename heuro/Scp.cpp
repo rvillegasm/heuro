@@ -37,14 +37,29 @@ namespace Heuro
     {
     }
 
+    ScpResult Scp::constructive()
+    {
+        return graspInternal(1, 1);
+    }
+
     ScpResult Scp::grasp(int maxSolCount, int k)
+    {
+        return graspInternal(maxSolCount, k);
+    }
+
+    ScpResult Scp::graspWithNoise(int maxSolCount, int k, int rho)
+    {
+        return graspInternal(maxSolCount, k, rho);
+    }
+
+    ScpResult Scp::graspInternal(int maxSolCount, int k, int rho)
     {
         std::vector<std::pair<std::unordered_set<int>, int>> foundSolutions; // list of solutions and costs
         foundSolutions.reserve(maxSolCount);
 
         for (int i = 0; i < maxSolCount; ++i)
         {
-            auto solution = greedyRandomized(k);
+            auto solution = greedyRandomized(k, rho);
             int solutionCost = std::reduce(solution.begin(), solution.end(), 0, [this](int a, int b) { return a + m_Costs[b]; });
 
             foundSolutions.emplace_back(std::move(solution), solutionCost);
@@ -55,7 +70,7 @@ namespace Heuro
         return ScpResult{ bestSolution.second, bestSolution.first.size(), std::move(bestSolution.first) };
     }
 
-    std::unordered_set<int> Scp::greedyRandomized(int k)
+    std::unordered_set<int> Scp::greedyRandomized(int k, int rho)
     {
         std::unordered_set<int> solution; // subset IDs
         std::vector<int> localCosts(m_Costs); // local copy to avoid mangling the OG
@@ -65,6 +80,14 @@ namespace Heuro
         for (int i = 0; i < m_ElementCount; ++i)
         {
             remainingElements.insert(i);
+        }
+
+        if (rho)
+        {
+            for (int &cost : localCosts)
+            {
+                cost = RandomIntGenerator(cost - rho, cost + rho)();
+            }
         }
 
         RandomIntGenerator randGen(0, k);
@@ -87,10 +110,5 @@ namespace Heuro
         }
 
         return solution;
-    }
-
-    ScpResult Scp::constructive()
-    {
-        return grasp(1, 1);
     }
 }

@@ -13,7 +13,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
-add_executable(heuro_cli main.cpp io/ExcelFile.cpp io/ExcelFile.hpp)
+add_executable(heuro_cli main.cpp io/ExcelFile.cpp HeuroCli.cpp HeuroCli.hpp)
 
 add_subdirectory(heuro)
 
@@ -24,5 +24,15 @@ option(TESTS "Set to OFF to skip building test executable (in ./tests)" OFF)
 # ------------------------------------
 
 target_include_directories(heuro_cli PRIVATE heuro vendor/xlnt/include)
-
 target_link_libraries(heuro_cli heuro xlnt)
+
+target_compile_definitions(heuro_cli PRIVATE HE_PROFILE)
+
+# ----- Post build events -----
+add_custom_command(
+    TARGET heuro_cli
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/assets" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets"
+    VERBATIM
+)
+# -------------------------------
