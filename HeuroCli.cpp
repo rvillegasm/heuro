@@ -35,6 +35,10 @@ void HeuroCli::evaluateFile(const std::string &inputFileName)
     Heuro::ScpInput input = Heuro::ScpParser::parseFile("assets/" + inputFileName + ".txt");
     Heuro::Scp solver(input.elementCount, input.subsetCount, input.costs, input.relations);
 
+    int maxIterations = 100;
+    int k = 10; // Heuro::RandomIntGenerator(2, input.subsetCount)();
+    int rho = 5; // static_cast<int>(std::reduce(input.costs.begin(), input.costs.end()) / input.costs.size());
+
     Heuro::ScpResult constructiveResult;
     {
         std::string scopeName = inputFileName + "\tconst";
@@ -43,9 +47,6 @@ void HeuroCli::evaluateFile(const std::string &inputFileName)
     }
     m_OutputFile.addValues(inputFileName, constructiveResult.toVec());
 
-    int maxIterations = 1000;
-    int k = 10; // Heuro::RandomIntGenerator(2, input.subsetCount)();
-
     Heuro::ScpResult graspResult;
     {
         std::string scopeName = inputFileName + "\tgrasp";
@@ -53,8 +54,6 @@ void HeuroCli::evaluateFile(const std::string &inputFileName)
         graspResult = solver.grasp(maxIterations, k);
     }
     m_OutputFile.addValues(inputFileName, graspResult.toVec());
-
-    int rho = 5; // static_cast<int>(std::reduce(input.costs.begin(), input.costs.end()) / input.costs.size());
 
     Heuro::ScpResult noiseResult;
     {
