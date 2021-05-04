@@ -1,6 +1,8 @@
 #include "Scp.hpp"
 
 #include "util/RandomIntGenerator.hpp"
+#include "util/RandomRealGenerator.hpp"
+#include "util/Timer.hpp"
 
 #include <algorithm>
 #include <numeric>
@@ -50,6 +52,42 @@ namespace Heuro
     ScpResult Scp::graspWithNoise(int maxSolCount, int k, int rho)
     {
         return graspInternal(maxSolCount, k, rho);
+    }
+
+    ScpResult Scp::simulatedAnnealing(long maxRuntime, double initTemp, int iterPerTemp, const std::function<double(double, int)> &tempCoolingSchedule)
+    {
+        ScpResult currentSolution = constructive();
+        RandomRealGenerator randGen(0.0, 1.0);
+
+        int iterCount = 0;
+        double currentTemp = initTemp;
+        Timer timer(maxRuntime);
+        while (!timer.hasStopped() && currentTemp > 0.0)
+        {
+            for (int i = 0; i < iterPerTemp; ++i)
+            {
+                ScpResult neighbourSolution = generateNeighbour(currentSolution);
+
+                int deltaCost = neighbourSolution.cost - currentSolution.cost;
+                if (deltaCost <= 0)
+                {
+                    currentSolution = std::move(neighbourSolution);
+                }
+                else
+                {
+                    double acceptanceProbability = exp(-deltaCost / currentTemp);
+                    if (randGen() <= acceptanceProbability)
+                    {
+                        currentSolution = std::move(neighbourSolution);
+                    }
+                }
+            }
+
+            iterCount += 1;
+            timer.tick();
+            currentTemp = tempCoolingSchedule(initTemp, iterCount);
+        }
+        return currentSolution;
     }
 
     ScpResult Scp::graspInternal(int maxSolCount, int k, int rho)
@@ -110,5 +148,10 @@ namespace Heuro
         }
 
         return solution;
+    }
+
+    ScpResult Scp::generateNeighbour(ScpResult current)
+    {
+        return ScpResult();
     }
 }

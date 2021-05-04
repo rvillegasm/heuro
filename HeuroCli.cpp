@@ -9,20 +9,20 @@ HeuroCli::HeuroCli(const std::string &outputFilename)
 
 void HeuroCli::run()
 {
-    HE_PROFILE_BEGIN_SESSION("Scp", "profiling.txt");
-    evaluateFile("scp41");
-    evaluateFile("scp42");
-    evaluateFile("scpnrg1");
-    evaluateFile("scpnrg2");
-    evaluateFile("scpnrg3");
-    evaluateFile("scpnrg4");
-    evaluateFile("scpnrg5");
-    evaluateFile("scpnrh1");
-    evaluateFile("scpnrh2");
-    evaluateFile("scpnrh3");
-    evaluateFile("scpnrh4");
-    evaluateFile("scpnrh5");
-    HE_PROFILE_END_SESSION();
+//    HE_PROFILE_BEGIN_SESSION("Scp", "profiling.txt");
+//    evaluateFile("scp41");
+//    evaluateFile("scp42");
+//    evaluateFile("scpnrg1");
+//    evaluateFile("scpnrg2");
+//    evaluateFile("scpnrg3");
+//    evaluateFile("scpnrg4");
+//    evaluateFile("scpnrg5");
+//    evaluateFile("scpnrh1");
+//    evaluateFile("scpnrh2");
+//    evaluateFile("scpnrh3");
+//    evaluateFile("scpnrh4");
+//    evaluateFile("scpnrh5");
+//    HE_PROFILE_END_SESSION();
 }
 
 void HeuroCli::evaluateFile(const std::string &inputFileName)

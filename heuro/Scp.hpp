@@ -3,6 +3,7 @@
 #include "util/Data.hpp"
 
 #include <vector>
+#include <functional>
 #include <unordered_set>
 
 namespace Heuro
@@ -30,6 +31,8 @@ namespace Heuro
          */
         ScpResult graspInternal(int maxSolCount, int k, int rho = 0);
         std::unordered_set<int> greedyRandomized(int k, int rho);
+
+        ScpResult generateNeighbour(ScpResult current);
 
     public:
         Scp(int elementCount, int subsetCount, std::vector<int> costs, std::vector<std::unordered_set<int>> relations);
@@ -64,6 +67,23 @@ namespace Heuro
          * @return The cost of the found solution, as well as the chosen subsets count and their IDs.
          */
         ScpResult graspWithNoise(int maxSolCount, int k, int rho);
+
+        /**
+         * @brief Tries to find an as-close as possible optimal solution by using a local search meta-heuristic capable of escaping local optima.
+         * It allows hill-climbing moves in hopes of finding the global optimum.
+         * It simulates the process of physical annealing with solids, in which a crystalline solid is heated and then allowed to cool very slowly
+         * until it achieves its most regular possible crystal lattice configuration, and thus is free of crystal defects.
+         *
+         * (Based on the algorithm proposed in 'Handbook of Metaheuristics', by Michel Gendreau and Jean-Yves Potvin).
+         *
+         * @param maxRuntime The amount of time in milliseconds for which the algorithm is allowed to run.
+         * @param initTemp The initial temperature of the simulation.
+         * @param iterPerTemp The number of iterations executed at each temperature.
+         * @param tempCoolingSchedule The cooling function. It accepts the initial one and the current iteration number, and returns the new temp..
+         *
+         * @return The cost of the found solution, as well as the chosen subsets count and their IDs.
+         */
+        ScpResult simulatedAnnealing(long maxRuntime, double initTemp, int iterPerTemp, const std::function<double(double, int)> &tempCoolingSchedule);
     };
 
 }

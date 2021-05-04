@@ -17,7 +17,7 @@ namespace Heuro
             std::vector<int> vec;
             vec.reserve(subsetIDs.size() + 2);
             vec.push_back(cost);
-            vec.push_back(subsetCount);
+            vec.push_back(static_cast<int>(subsetCount));
             for (int subset : subsetIDs)
             {
                 vec.push_back(subset);

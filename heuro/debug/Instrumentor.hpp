@@ -132,7 +132,7 @@ namespace Heuro
                 std::chrono::time_point_cast<std::chrono::milliseconds>(endTimePoint).time_since_epoch()
                 - std::chrono::time_point_cast<std::chrono::milliseconds>(m_StartTimePoint).time_since_epoch();
 
-            Instrumentor::get().writeProfile({ m_Name, elapsedTime  });
+            Instrumentor::get().writeProfile({ m_Name, elapsedTime });
 
             m_Stopped = true;
         }
