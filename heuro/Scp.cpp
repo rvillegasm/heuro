@@ -66,7 +66,7 @@ namespace Heuro
         {
             for (int i = 0; i < iterPerTemp; ++i)
             {
-                ScpResult neighbourSolution = generateNeighbour(currentSolution);
+                ScpResult neighbourSolution = generateNeighbour(currentSolution, 0);
 
                 int deltaCost = neighbourSolution.cost - currentSolution.cost;
                 if (deltaCost <= 0)
@@ -86,6 +86,30 @@ namespace Heuro
             iterCount += 1;
             timer.tick();
             currentTemp = tempCoolingSchedule(initTemp, iterCount);
+        }
+
+        return currentSolution;
+    }
+
+    ScpResult Scp::vns(long maxRuntime)
+    {
+        ScpResult currentSolution = constructive();
+
+        Timer timer(maxRuntime);
+        while (!timer.hasStopped())
+        {
+            for (int k = 0; k < 3; ++k)
+            {
+                ScpResult neighbourSolution = generateNeighbour(currentSolution, k);
+                int deltaCost = neighbourSolution.cost - currentSolution.cost;
+                if (deltaCost <= 0)
+                {
+                    currentSolution = std::move(neighbourSolution);
+                    break;
+                }
+            }
+
+            timer.tick();
         }
 
         return currentSolution;
@@ -150,19 +174,95 @@ namespace Heuro
         return solution;
     }
 
-    ScpResult Scp::generateNeighbour(const ScpResult &current)
+    ScpResult Scp::generateNeighbour(const ScpResult &current, int k)
     {
-        RandomIntGenerator randGen(0, m_SubsetCount);
+        switch (k)
+        {
+            case 0:
+                return randomNeighbour(current);
+            case 1:
+                return sequentialRemovalNeighbour(current);
+            case 2:
+                return bestNeighbour(current);
+            default:
+                return ScpResult();
+        }
+    }
+
+    ScpResult Scp::randomNeighbour(const ScpResult &current)
+    {
+        RandomIntGenerator randSubsetGen(0, m_SubsetCount);
 
         std::unordered_set<int> subsetIDs = current.subsetIDs;
+        std::vector<int> subsetIDsList(subsetIDs.begin(), subsetIDs.end());
+        RandomIntGenerator randIndexGen(0, static_cast<int>(subsetIDsList.size()));
         do
         {
-            subsetIDs.erase(randGen());
-            subsetIDs.insert(randGen()); // since the generated number could already be inside the set, add 0 or 1 new subset
+            int subsetToRemove = subsetIDsList[randIndexGen()];
+            int subsetToAdd = randSubsetGen();
+            subsetIDs.erase(subsetToRemove);
+            subsetIDs.insert(subsetToAdd); // since the generated number could already be inside the set, add 0 or 1 new subset
         }
-        while (isSolutionFeasible(subsetIDs));
+        while (!isSolutionFeasible(subsetIDs));
 
         return { calculateSolutionCost(subsetIDs), subsetIDs.size(), std::move(subsetIDs) };
+    }
+
+    ScpResult Scp::sequentialRemovalNeighbour(const ScpResult &current)
+    {
+        RandomIntGenerator randSubsetGen(0, m_SubsetCount);
+
+        ScpResult selectedNeighbour = current;
+        std::unordered_set<int> subsetIDs = selectedNeighbour.subsetIDs;
+        std::vector<int> subsetIDsList(selectedNeighbour.subsetIDs.begin(), selectedNeighbour.subsetIDs.end()); // Just for iteration, because of access violation when iterating the set
+
+        int minCost = std::numeric_limits<int>::max();
+        for (int subset : subsetIDsList)
+        {
+            int subsetToAdd = randSubsetGen();
+            subsetIDs.erase(subset);
+            subsetIDs.insert(subsetToAdd);
+            int cost = calculateSolutionCost(subsetIDs);
+            if (cost <= minCost && isSolutionFeasible(subsetIDs))
+            {
+                minCost = cost;
+                selectedNeighbour = { cost, subsetIDs.size(), subsetIDs };
+            }
+            // roll back to explore other options
+            subsetIDs.erase(subsetToAdd);
+            subsetIDs.insert(subset);
+        }
+
+        return selectedNeighbour;
+    }
+
+    ScpResult Scp::bestNeighbour(const ScpResult &current)
+    {
+        // sequentially eliminate one and add another (O(n^2)). choose the best one.
+        ScpResult bestNeighbour = current;
+        std::unordered_set<int> subsetIDs = bestNeighbour.subsetIDs;
+        std::vector<int> subsetIDsList(bestNeighbour.subsetIDs.begin(), bestNeighbour.subsetIDs.end()); // Just for iteration, because of access violation when iterating the set
+
+        int minCost = std::numeric_limits<int>::max();
+        for (int subset : subsetIDsList)
+        {
+            subsetIDs.erase(subset);
+            for (int i = 0; i < m_SubsetCount; ++i)
+            {
+                subsetIDs.insert(i);
+                int cost = calculateSolutionCost(subsetIDs);
+                if (cost <= minCost && isSolutionFeasible(subsetIDs))
+                {
+                    minCost = cost;
+                    bestNeighbour = { cost, subsetIDs.size(), subsetIDs };
+                }
+
+                subsetIDs.erase(i);
+            }
+            subsetIDs.insert(subset);
+        }
+
+        return bestNeighbour;
     }
 
     bool Scp::isSolutionFeasible(const std::unordered_set<int> &subsetIDs)

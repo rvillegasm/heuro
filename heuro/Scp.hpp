@@ -32,7 +32,10 @@ namespace Heuro
         ScpResult graspInternal(int maxSolCount, int k, int rho = 0);
         std::unordered_set<int> greedyRandomized(int k, int rho);
 
-        ScpResult generateNeighbour(const ScpResult& current);
+        ScpResult generateNeighbour(const ScpResult& current, int k);
+        ScpResult randomNeighbour(const ScpResult &current);
+        ScpResult sequentialRemovalNeighbour(const ScpResult &current);
+        ScpResult bestNeighbour(const ScpResult &current);
 
         bool isSolutionFeasible(const std::unordered_set<int> &subsetIDs);
         int calculateSolutionCost(const std::unordered_set<int> &subsetIDs);
@@ -87,6 +90,17 @@ namespace Heuro
          * @return The cost of the found solution, as well as the chosen subsets count and their IDs.
          */
         ScpResult simulatedAnnealing(long maxRuntime, double initTemp, int iterPerTemp, const std::function<double(double, int)> &tempCoolingSchedule);
+
+        /**
+         * @brief Tries to find an as-close as possible optimal solution by using a variable neighbourhood search method.
+         * In it, a neighbour is generated and accepted in case it improves on the current solution.
+         * Otherwise, the search continues in another neighbourhood (max. 3 different neighbourhoods).
+         *
+         * @param maxRuntime The amount of time in milliseconds for which the algorithm is allowed to run.
+         *
+         * @return The cost of the found solution, as well as the chosen subsets count and their IDs.
+         */
+        ScpResult vns(long maxRuntime);
     };
 
 }
