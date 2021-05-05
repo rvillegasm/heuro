@@ -32,7 +32,10 @@ namespace Heuro
         ScpResult graspInternal(int maxSolCount, int k, int rho = 0);
         std::unordered_set<int> greedyRandomized(int k, int rho);
 
-        ScpResult generateNeighbour(ScpResult current);
+        ScpResult generateNeighbour(const ScpResult& current);
+
+        bool isSolutionFeasible(const std::unordered_set<int> &subsetIDs);
+        int calculateSolutionCost(const std::unordered_set<int> &subsetIDs);
 
     public:
         Scp(int elementCount, int subsetCount, std::vector<int> costs, std::vector<std::unordered_set<int>> relations);

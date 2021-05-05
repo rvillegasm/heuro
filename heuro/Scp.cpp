@@ -87,6 +87,7 @@ namespace Heuro
             timer.tick();
             currentTemp = tempCoolingSchedule(initTemp, iterCount);
         }
+
         return currentSolution;
     }
 
@@ -98,7 +99,7 @@ namespace Heuro
         for (int i = 0; i < maxSolCount; ++i)
         {
             auto solution = greedyRandomized(k, rho);
-            int solutionCost = std::reduce(solution.begin(), solution.end(), 0, [this](int a, int b) { return a + m_Costs[b]; });
+            int solutionCost = calculateSolutionCost(solution);
 
             foundSolutions.emplace_back(std::move(solution), solutionCost);
         }
@@ -144,14 +145,52 @@ namespace Heuro
                 }
             }
             localCosts[chosenSubsetCandidate] = std::numeric_limits<int>::max(); // marks the value as already used
-
         }
 
         return solution;
     }
 
-    ScpResult Scp::generateNeighbour(ScpResult current)
+    ScpResult Scp::generateNeighbour(const ScpResult &current)
     {
-        return ScpResult();
+        RandomIntGenerator randGen(0, m_SubsetCount);
+
+        std::unordered_set<int> subsetIDs = current.subsetIDs;
+        do
+        {
+            subsetIDs.erase(randGen());
+            subsetIDs.insert(randGen()); // since the generated number could already be inside the set, add 0 or 1 new subset
+        }
+        while (isSolutionFeasible(subsetIDs));
+
+        return { calculateSolutionCost(subsetIDs), subsetIDs.size(), std::move(subsetIDs) };
+    }
+
+    bool Scp::isSolutionFeasible(const std::unordered_set<int> &subsetIDs)
+    {
+        std::unordered_set<int> remainingElements;
+        remainingElements.reserve(m_ElementCount);
+        for (int i = 0; i < m_ElementCount; ++i)
+        {
+            remainingElements.insert(i);
+        }
+
+        for (int i = 0; i < m_Relations.size(); ++i)
+        {
+            for (int subset : subsetIDs)
+            {
+                if (m_Relations[i].contains(subset))
+                {
+                    remainingElements.erase(i); // if the element is contained by the subset, mark it as used
+                    break;
+                }
+            }
+        }
+
+        return remainingElements.empty(); // all elements must be taken into account for the solution to be feasible
+    }
+
+    int Scp::calculateSolutionCost(const std::unordered_set<int> &subsetIDs)
+    {
+        return std::reduce(subsetIDs.begin(), subsetIDs.end(), 0, [this](int a, int b) { return a + m_Costs[b]; });
     }
 }
