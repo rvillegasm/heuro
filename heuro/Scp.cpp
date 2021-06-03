@@ -2,11 +2,14 @@
 
 #include "util/RandomIntGenerator.hpp"
 #include "util/RandomRealGenerator.hpp"
+#include "util/RandomBinaryGenerator.hpp"
 #include "util/Timer.hpp"
 
 #include <algorithm>
 #include <numeric>
 #include <utility>
+#include <unordered_map>
+#include <queue>
 
 namespace Heuro
 {
@@ -31,6 +34,56 @@ namespace Heuro
                     return a.second < b.second;
                 }
             );
+        }
+
+        template<size_t size>
+        static std::bitset<size> genRandomBitset(double probability)
+        {
+            std::bitset<size> bits;
+            RandomBinaryGenerator gen(probability);
+
+            for (int i = 0; i < size; ++i)
+            {
+                bits[i] = gen();
+            }
+
+            return bits;
+        }
+
+        template<size_t size>
+        static void truncateBitsetAfterIndex(std::bitset<size> &bits, size_t startIndex)
+        {
+            for (size_t i = startIndex; i < size; ++i)
+            {
+                bits.reset(i);
+            }
+        }
+
+        template<size_t size>
+        static std::bitset<size> setToBitset(const std::unordered_set<int> &set)
+        {
+            std::bitset<size> bits;
+            for (int value : set)
+            {
+                bits.set(value);
+            }
+
+            return bits;
+        }
+
+        template<size_t size>
+        static std::unordered_set<int> bitsetToSet(const std::bitset<size> &bits)
+        {
+            std::unordered_set<int> set;
+            for (int i = 0; i < bits.size(); ++i)
+            {
+                if (bits[i])
+                {
+                    set.insert(i);
+                }
+            }
+
+            return set;
         }
     }
 
@@ -113,6 +166,54 @@ namespace Heuro
         }
 
         return currentSolution;
+    }
+
+    ScpResult Scp::blga(long maxRuntime, int populationSize, int matesCount, double geneCopyProbability, int rtsSampleSize)
+    {
+        constexpr size_t BITSET_SIZE = 1024;
+
+        ScpResult initialSolution = constructive();
+        auto leaderChromosome = Util::setToBitset<BITSET_SIZE>(initialSolution.subsetIDs);
+        int leaderChromosomeCost = initialSolution.cost;
+
+        std::vector<std::bitset<BITSET_SIZE>> population;
+        population.reserve(populationSize);
+        for (int i = 0; i < populationSize; ++i)
+        {
+            auto bits = Util::genRandomBitset<BITSET_SIZE>(0.5);
+            Util::truncateBitsetAfterIndex(bits, m_SubsetCount);
+            population.push_back(bits);
+        }
+
+        Timer timer(maxRuntime);
+        while (!timer.hasStopped())
+        {
+            std::vector<int> mates = positiveAssortativeMating<BITSET_SIZE>(leaderChromosome, population, matesCount);
+            std::bitset<BITSET_SIZE> offspring;
+            std::unordered_set<int> offspringAsSet;
+            do
+            {
+                offspring = randomParentUniformCrossover<BITSET_SIZE>(leaderChromosome, population, mates, geneCopyProbability, m_SubsetCount);
+                offspringAsSet = Util::bitsetToSet<BITSET_SIZE>(offspring);
+            } while (!isSolutionFeasible(offspringAsSet));
+
+            int offspringCost = calculateSolutionCost(offspringAsSet);
+            if (offspringCost < leaderChromosomeCost)
+            {
+                restrictedTournamentSelection<BITSET_SIZE>(population, leaderChromosome, rtsSampleSize);
+                leaderChromosome = offspring;
+                leaderChromosomeCost = offspringCost;
+            }
+            else
+            {
+                restrictedTournamentSelection<BITSET_SIZE>(population, offspring, rtsSampleSize);
+            }
+
+            timer.tick();
+        }
+
+        auto leaderAsSet = Util::bitsetToSet<BITSET_SIZE>(leaderChromosome);
+        return { leaderChromosomeCost, leaderAsSet.size(), std::move(leaderAsSet) };
     }
 
     ScpResult Scp::graspInternal(int maxSolCount, int k, int rho)
@@ -265,6 +366,99 @@ namespace Heuro
         return bestNeighbour;
     }
 
+    template<size_t size>
+    std::vector<int> Scp::positiveAssortativeMating(const std::bitset<size> &leader, const std::vector<std::bitset<size>> &population, int matesCount)
+    {
+        std::priority_queue<int> bestHammingDistances;
+        std::unordered_map<int, int> mateIndexForHammingDistance;
+        mateIndexForHammingDistance.reserve(matesCount);
+
+        for (int i = 0; i < matesCount; ++i) // fill the priority queue first
+        {
+            int hammingDistance = (population[i] ^ leader).count();
+            bestHammingDistances.push(hammingDistance);
+            mateIndexForHammingDistance[hammingDistance] = i;
+        }
+
+        for (int i = matesCount; i < population.size(); ++i)
+        {
+            int hammingDistance = (population[i] ^ leader).count();
+
+            int worstHammingDistance = bestHammingDistances.top();
+            if (hammingDistance < worstHammingDistance)
+            {
+                bestHammingDistances.pop();
+                mateIndexForHammingDistance.erase(worstHammingDistance);
+                bestHammingDistances.push(hammingDistance);
+                mateIndexForHammingDistance[hammingDistance] = i;
+            }
+        }
+
+        std::vector<int> mates;
+        mates.reserve(matesCount);
+        for (auto &[_, index] : mateIndexForHammingDistance)
+        {
+            mates.push_back(index);
+        }
+
+        return mates;
+    }
+
+    template<size_t size>
+    std::bitset<size> Scp::randomParentUniformCrossover(
+        const std::bitset<size> &leader,
+        const std::vector<std::bitset<size>> &population,
+        const std::vector<int> &matesIndexes,
+        double geneCopyProbability,
+        size_t usableBitsCount)
+    {
+        RandomIntGenerator intGen(0, static_cast<int>(matesIndexes.size()));
+        std::bitset<size> randomMate = population[matesIndexes[intGen()]];
+
+        auto carryOverGenes = Util::genRandomBitset<size>(geneCopyProbability);
+        Util::truncateBitsetAfterIndex(carryOverGenes, usableBitsCount);
+        std::bitset<size> leaderOffspring = carryOverGenes & leader;
+
+        carryOverGenes.flip();
+        Util::truncateBitsetAfterIndex(carryOverGenes, usableBitsCount);
+        std::bitset<size> randomMateOffspring = carryOverGenes & randomMate;
+
+        std::bitset<size> offspring = leaderOffspring | randomMateOffspring;
+        return offspring;
+    }
+
+    template<size_t size>
+    void Scp::restrictedTournamentSelection(std::vector<std::bitset<size>> &population, const std::bitset<size> &solution, int sampleSize)
+    {
+        std::vector<int> draftedChromosomesIndexes;
+        draftedChromosomesIndexes.reserve(sampleSize);
+        RandomIntGenerator intGen(0, sampleSize);
+        for (int i = 0; i < sampleSize; ++i)
+        {
+            draftedChromosomesIndexes.push_back(intGen());
+        }
+
+        int minDistance = std::numeric_limits<int>::max();
+        int minDistanceIndex = 0;
+        for (int index : draftedChromosomesIndexes)
+        {
+            int hammingDistance = (population[index] ^ solution).count();
+            if (hammingDistance < minDistance)
+            {
+                minDistance = hammingDistance;
+                minDistanceIndex = index;
+            }
+        }
+
+        int minDistanceChromosomeCost = calculateSolutionCost(Util::bitsetToSet<size>(population[minDistanceIndex]));
+        int solutionCost = calculateSolutionCost(Util::bitsetToSet<size>(solution));
+
+        if (solutionCost < minDistanceChromosomeCost)
+        {
+            population[minDistanceIndex] = solution;
+        }
+    }
+
     bool Scp::isSolutionFeasible(const std::unordered_set<int> &subsetIDs)
     {
         std::unordered_set<int> remainingElements;
@@ -293,4 +487,5 @@ namespace Heuro
     {
         return std::reduce(subsetIDs.begin(), subsetIDs.end(), 0, [this](int a, int b) { return a + m_Costs[b]; });
     }
+
 }

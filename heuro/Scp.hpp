@@ -5,6 +5,7 @@
 #include <vector>
 #include <functional>
 #include <unordered_set>
+#include <bitset>
 
 namespace Heuro
 {
@@ -36,6 +37,51 @@ namespace Heuro
         ScpResult randomNeighbour(const ScpResult &current);
         ScpResult sequentialRemovalNeighbour(const ScpResult &current);
         ScpResult bestNeighbour(const ScpResult &current);
+
+        /**
+         * @brief Goes through the population and gets the indexes of the chromosomes with the highest Hamming distance to the leader,
+         * i.e. the most similar ones.
+         *
+         * @tparam size The size of the bitsets.
+         * @param population The population in which to search for the mates.
+         * @param leader The leader chromosome.
+         * @param matesCount The amount of mates chosen.
+         *
+         * @return The indexes of the chosen mates within the population.
+         */
+        template<size_t size>
+        std::vector<int> positiveAssortativeMating(const std::bitset<size> &leader, const std::vector<std::bitset<size>> &population, int matesCount);
+
+        /**
+         * @brief Crossover operator that generates an offspring using one randomly selected parent, copying the genes of the leader with a given probability.
+         *
+         * @tparam size The size of the bitsets.
+         * @param leader The leader chromosome.
+         * @param population The population of chromosomes.
+         * @param matesIndexes The indexes of the chosen mates for the crossover.
+         * @param geneCopyProbability The probability to copy each gene of the leader.
+         * @param usableBitsCount The amount of bits to be used from the bitsets. Should be less than template param size.
+         *
+         * @return The offspring of the process.
+         */
+        template<size_t size>
+        std::bitset<size> randomParentUniformCrossover(
+            const std::bitset<size> &leader,
+            const std::vector<std::bitset<size>> &population,
+            const std::vector<int> &matesIndexes,
+            double geneCopyProbability,
+            size_t usableBitsCount);
+
+        /**
+         * @brief Compares the solution to a randomly drafted group from the population, replacing the most similar one with it.
+         *
+         * @tparam size The size of the bitsets.
+         * @param population The population of chromosomes.
+         * @param solution The solution to insert into the population.
+         * @param sampleSize The amount of randomly selected chromosomes from the population.
+         */
+        template<size_t size>
+        void restrictedTournamentSelection(std::vector<std::bitset<size>> &population, const std::bitset<size> &solution, int sampleSize);
 
         bool isSolutionFeasible(const std::unordered_set<int> &subsetIDs);
         int calculateSolutionCost(const std::unordered_set<int> &subsetIDs);
@@ -101,6 +147,23 @@ namespace Heuro
          * @return The cost of the found solution, as well as the chosen subsets count and their IDs.
          */
         ScpResult vns(long maxRuntime);
+
+        /**
+         * @brief Calculates a solution using a binary-coded local genetic algorithm (BLGA), a hybrid steady-state genetic algorithm that
+         * combines the speed and power of a genetic algorithm with the precision of a local search procedure. It makes use of
+         * positive assortative mating to select parents near the current best solution, random-parent uniform crossover to create an offspring
+         * relatively near the current search space, and restricted tournament selection (RTS) to improve the quality of the population.
+         *
+         * (Based on the algorithm proposed in 'Local Search Based on Genetic Algorithms', by Carlos Garcia-Martinez and Manuel Lozano).
+         *
+         * @param maxRuntime The amount of time in milliseconds for which the algorithm is allowed to run.
+         * @param matesCount The number of mates selected from the population using positive assortative mating.
+         * @param geneCopyProbability The probability of a gene from the best solution to be carried over to its offspring.
+         * @param rtsSampleSize The number of randomly selected individuals from the population for the RTS procedure.
+         *
+         * @return The cost of the found solution, as well as the chosen subsets count and their IDs.
+         */
+        ScpResult blga(long maxRuntime, int populationSize, int matesCount, double geneCopyProbability, int rtsSampleSize);
     };
 
 }
